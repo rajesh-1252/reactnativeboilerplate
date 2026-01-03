@@ -1,5 +1,5 @@
-import { tokens } from '@/theme/tokens';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@tamagui/core';
 import { Tabs } from 'expo-router';
 import React from 'react';
 
@@ -7,24 +7,26 @@ import React from 'react';
  * Tabs layout for main app navigation
  */
 export default function TabsLayout() {
+  const theme = useTheme();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: true,
         headerStyle: {
-          backgroundColor: tokens.color.background,
+          backgroundColor: theme.background?.get(),
         },
-        headerTintColor: tokens.color.text,
+        headerTintColor: theme.color?.get(),
         headerTitleStyle: {
           fontWeight: '600',
         },
         tabBarStyle: {
-          backgroundColor: tokens.color.background,
-          borderTopColor: tokens.color.border,
+          backgroundColor: theme.background?.get(),
+          borderTopColor: theme.border?.get(),
           borderTopWidth: 1,
         },
-        tabBarActiveTintColor: tokens.color.primary,
-        tabBarInactiveTintColor: tokens.color.textMuted,
+        tabBarActiveTintColor: theme.primary?.get() || theme.blue?.get(),
+        tabBarInactiveTintColor: theme.textMuted?.get(),
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',

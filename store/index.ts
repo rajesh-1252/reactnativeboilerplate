@@ -6,3 +6,6 @@ export { useSyncStatus, useSyncStore } from './sync';
 export { isSessionExpired, useAuthActions, useAuthStatus, useAuthStore } from './auth';
 export type { Session, User } from './auth';
 
+export { useTheme, useThemeStore } from './themeStore';
+export type { ThemeName } from './themeStore';
+

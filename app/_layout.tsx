@@ -1,6 +1,5 @@
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 
@@ -65,7 +64,6 @@ export default function RootLayout() {
           }}
         />
       </Stack>
-      <StatusBar style="light" />
     </ThemeProvider>
   );
 }

@@ -1,5 +1,6 @@
 import { tokens } from '@/theme/tokens';
 import { SPRING_CONFIGS } from '@/ui/animations';
+import { useTheme as useTamaguiTheme } from '@tamagui/core';
 import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
@@ -20,6 +21,7 @@ export interface ButtonProps {
 
 /**
  * Styled Button component with press animation
+ * Updated to correctly resolve theme colors using Tamagui theme keys
  */
 export function Button({
   children,
@@ -31,6 +33,7 @@ export function Button({
   fullWidth = false,
   style,
 }: ButtonProps) {
+  const tamaguiTheme = useTamaguiTheme();
   const scale = useSharedValue(1);
   
   const animatedStyle = useAnimatedStyle(() => ({
@@ -45,7 +48,7 @@ export function Button({
     scale.value = withSpring(1, SPRING_CONFIGS.gentle);
   };
   
-  const variantStyles = getVariantStyles(variant, disabled);
+  const variantStyles = getVariantStyles(variant, disabled, tamaguiTheme);
   const sizeStyles = getSizeStyles(size);
   
   return (
@@ -71,6 +74,7 @@ export function Button({
       ) : (
         <Text
           variant="body"
+          numberOfLines={1}
           style={[
             styles.text,
             { color: variantStyles.textColor },
@@ -84,35 +88,42 @@ export function Button({
   );
 }
 
-function getVariantStyles(variant: ButtonProps['variant'], disabled: boolean) {
+function getVariantStyles(variant: ButtonProps['variant'], disabled: boolean, theme: any) {
   const opacity = disabled ? 0.5 : 1;
+  
+  // Resolve colors based on tamagui.config.ts keys
+  const primaryColor = theme.primary?.get();
+  const secondaryColor = theme.secondary?.get();
+  const textColor = theme.color?.get(); // This is palette.text
+  const textSecondaryColor = theme.textSecondary?.get();
+  const borderColorValue = theme.borderColor?.get() || theme.border?.get();
   
   switch (variant) {
     case 'primary':
       return {
         container: {
-          backgroundColor: tokens.color.primary,
+          backgroundColor: primaryColor,
           opacity,
         },
-        textColor: tokens.color.text,
+        textColor: '#FFFFFF', // High contrast on primary background
       };
     case 'secondary':
       return {
         container: {
-          backgroundColor: tokens.color.secondary,
+          backgroundColor: secondaryColor,
           opacity,
         },
-        textColor: tokens.color.text,
+        textColor: '#FFFFFF',
       };
     case 'outline':
       return {
         container: {
           backgroundColor: 'transparent',
           borderWidth: 1,
-          borderColor: tokens.color.border,
+          borderColor: borderColorValue || textColor,
           opacity,
         },
-        textColor: tokens.color.text,
+        textColor: textColor,
       };
     case 'ghost':
       return {
@@ -120,12 +131,12 @@ function getVariantStyles(variant: ButtonProps['variant'], disabled: boolean) {
           backgroundColor: 'transparent',
           opacity,
         },
-        textColor: tokens.color.textSecondary,
+        textColor: textSecondaryColor || textColor,
       };
     default:
       return {
-        container: { backgroundColor: tokens.color.primary },
-        textColor: tokens.color.text,
+        container: { backgroundColor: primaryColor },
+        textColor: '#FFFFFF',
       };
   }
 }

@@ -4,8 +4,9 @@ import { Input } from '@/components/Input';
 import { H1, Text } from '@/components/Text';
 import { useAuthActions } from '@/store/auth';
 import { tokens } from '@/theme/tokens';
+import { useTheme as useTamaguiTheme } from '@tamagui/core';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 
 /**
@@ -14,11 +15,18 @@ import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
  */
 export default function LoginScreen() {
   const router = useRouter();
+  const tamaguiTheme = useTamaguiTheme();
   const { login } = useAuthActions();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  const dynamicStyles = useMemo(() => ({
+    container: {
+      backgroundColor: tamaguiTheme.background?.get() || tamaguiTheme.color?.get(),
+    },
+  }), [tamaguiTheme]);
   
   const handleLogin = async () => {
     if (!email || !password) {
@@ -30,17 +38,14 @@ export default function LoginScreen() {
     setError(null);
     
     try {
-      // TODO: Replace with actual authentication
-      // For scaffold, we'll simulate a login
+      // simulate login
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Simulate successful login
       login(
         { id: '1', email, name: 'Demo User' },
         { accessToken: 'demo-token', expiresAt: Date.now() + 86400000 }
       );
       
-      // Navigate to main app
       router.replace('/(tabs)');
     } catch (err) {
       setError('Login failed. Please try again.');
@@ -50,7 +55,6 @@ export default function LoginScreen() {
   };
   
   const handleSkip = () => {
-    // Allow skipping auth for demo purposes
     login(
       { id: 'guest', email: 'guest@example.com', name: 'Guest' },
       { accessToken: 'guest-token', expiresAt: Date.now() + 86400000 }
@@ -60,7 +64,7 @@ export default function LoginScreen() {
   
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, dynamicStyles.container]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
@@ -125,7 +129,6 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.color.background,
   },
   content: {
     flex: 1,

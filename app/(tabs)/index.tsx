@@ -6,9 +6,48 @@ import { Item, itemsRepository } from '@/db';
 import { useSyncStatus } from '@/store/sync';
 import { useUIStore } from '@/store/ui';
 import { tokens } from '@/theme/tokens';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useTheme as useTamaguiTheme } from '@tamagui/core';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
+
+/**
+ * Optimized Add Item component to prevent full page rerenders on input change
+ */
+function AddItemForm({ onAddItem }: { onAddItem: (title: string) => Promise<void> }) {
+  const [title, setTitle] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+
+  const handleAdd = async () => {
+    if (!title.trim()) return;
+    setIsAdding(true);
+    await onAddItem(title.trim());
+    setTitle('');
+    setIsAdding(false);
+  };
+
+  return (
+    <View style={styles.addForm}>
+      <View style={styles.inputContainer}>
+        <Input
+          placeholder="Add new item..."
+          value={title}
+          onChangeText={setTitle}
+          onSubmitEditing={handleAdd}
+          returnKeyType="done"
+        />
+      </View>
+      <Button
+        onPress={handleAdd}
+        loading={isAdding}
+        disabled={!title.trim()}
+        size="md"
+      >
+        Add
+      </Button>
+    </View>
+  );
+}
 
 /**
  * Home screen demonstrating local CRUD operations
@@ -16,12 +55,20 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 export default function HomeScreen() {
   const [items, setItems] = useState<Item[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [newItemTitle, setNewItemTitle] = useState('');
-  const [isAdding, setIsAdding] = useState(false);
   
+  const tamaguiTheme = useTamaguiTheme();
   const { connectionState, pendingChangesCount } = useSyncStatus();
   const addToast = useUIStore((s) => s.addToast);
   
+  const dynamicStyles = useMemo(() => ({
+    container: {
+      backgroundColor: tamaguiTheme.background?.get(),
+    },
+    syncBadge: {
+      backgroundColor: tamaguiTheme.backgroundMuted?.get() || tamaguiTheme.surface?.get(),
+    }
+  }), [tamaguiTheme]);
+
   // Load items from database
   const loadItems = useCallback(async () => {
     try {
@@ -44,25 +91,20 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [loadItems]);
   
-  // Create new item
-  const handleAddItem = async () => {
-    if (!newItemTitle.trim()) return;
-    
-    setIsAdding(true);
+  // Create new item callback
+  const handleAddItem = async (title: string) => {
     try {
       await itemsRepository.create({
-        title: newItemTitle.trim(),
+        title,
         content: '',
         priority: 0,
       });
-      setNewItemTitle('');
       await loadItems();
       addToast({ message: 'Item created', type: 'success' });
     } catch (error) {
       console.error('Failed to create item:', error);
       addToast({ message: 'Failed to create item', type: 'error' });
-    } finally {
-      setIsAdding(false);
+      throw error;
     }
   };
   
@@ -95,7 +137,7 @@ export default function HomeScreen() {
               {new Date(item.createdAt).toLocaleDateString()}
             </Text>
           </View>
-          <View style={styles.syncBadge}>
+          <View style={[styles.syncBadge, dynamicStyles.syncBadge]}>
             <Text variant="caption" color={item.syncStatus === 'synced' ? 'muted' : 'primary'}>
               {item.syncStatus}
             </Text>
@@ -105,7 +147,8 @@ export default function HomeScreen() {
     </Animated.View>
   );
   
-  const ListHeader = () => (
+  // List header extracted to avoid unnecessary re-creation
+  const ListHeader = useMemo(() => (
     <View style={styles.header}>
       {/* Status Bar */}
       <View style={styles.statusBar}>
@@ -119,26 +162,7 @@ export default function HomeScreen() {
         )}
       </View>
       
-      {/* Add Item Form */}
-      <View style={styles.addForm}>
-        <View style={styles.inputContainer}>
-          <Input
-            placeholder="Add new item..."
-            value={newItemTitle}
-            onChangeText={setNewItemTitle}
-            onSubmitEditing={handleAddItem}
-            returnKeyType="done"
-          />
-        </View>
-        <Button
-          onPress={handleAddItem}
-          loading={isAdding}
-          disabled={!newItemTitle.trim()}
-          size="md"
-        >
-          Add
-        </Button>
-      </View>
+      <AddItemForm onAddItem={handleAddItem} />
       
       {/* Items Header */}
       <View style={styles.listHeader}>
@@ -148,18 +172,18 @@ export default function HomeScreen() {
         </Text>
       </View>
     </View>
-  );
+  ), [connectionState, pendingChangesCount, items.length]);
   
-  const ListEmpty = () => (
+  const ListEmpty = useCallback(() => (
     <View style={styles.empty}>
       <Text variant="body" color="muted" style={styles.emptyText}>
         No items yet. Add one above!
       </Text>
     </View>
-  );
+  ), []);
   
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, dynamicStyles.container]}>
       <FlatList
         data={items}
         renderItem={renderItem}
@@ -171,7 +195,7 @@ export default function HomeScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={tokens.color.primary}
+            tintColor={tamaguiTheme.primary?.get()}
           />
         }
       />
@@ -182,7 +206,6 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.color.background,
   },
   list: {
     padding: tokens.space[4],
@@ -226,7 +249,6 @@ const styles = StyleSheet.create({
   syncBadge: {
     paddingHorizontal: tokens.space[2],
     paddingVertical: tokens.space[1],
-    backgroundColor: tokens.color.backgroundMuted,
     borderRadius: tokens.radius[1],
   },
   empty: {

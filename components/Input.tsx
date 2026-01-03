@@ -1,4 +1,5 @@
 import { tokens } from '@/theme/tokens';
+import { useTheme } from '@tamagui/core';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, TextInputProps, View } from 'react-native';
 import { Text } from './Text';
@@ -25,12 +26,18 @@ export function Input({
   ...props
 }: InputProps) {
   const [isFocused, setIsFocused] = useState(false);
+  const theme = useTheme();
   
-  const borderColor = error
-    ? tokens.color.error
+  // Resolve colors using proper Tamagui theme keys from tamagui.config.ts
+  const borderColorValue = error
+    ? theme.error?.get()
     : isFocused
-    ? tokens.color.primary
-    : tokens.color.border;
+    ? theme.primary?.get() || theme.blue?.get()
+    : theme.borderColor?.get() || theme.border?.get(); // Fallback to borderColor
+    
+  const backgroundColorValue = theme.surface?.get() || theme.background?.get();
+  const textColorValue = theme.color?.get(); // maps to palette.text
+  const placeholderColorValue = theme.placeholderColor?.get() || theme.textMuted?.get();
   
   return (
     <View style={styles.container}>
@@ -40,16 +47,17 @@ export function Input({
         </Text>
       )}
       
-      <View style={[styles.inputContainer, { borderColor }]}>
+      <View style={[styles.inputContainer, { borderColor: borderColorValue, backgroundColor: backgroundColorValue }]}>
         {leftIcon && <View style={styles.leftIcon}>{leftIcon}</View>}
         
         <TextInput
           style={[
             styles.input,
+            { color: textColorValue },
             leftIcon ? styles.inputWithLeftIcon : undefined,
             rightIcon ? styles.inputWithRightIcon : undefined,
           ]}
-          placeholderTextColor={tokens.color.textMuted}
+          placeholderTextColor={placeholderColorValue}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           {...props}
@@ -67,7 +75,7 @@ export function Input({
           variant="caption"
           style={[
             styles.helpText,
-            { color: error ? tokens.color.error : tokens.color.textMuted },
+            { color: error ? theme.error?.get() : theme.textMuted?.get() },
           ]}
         >
           {error || hint}
@@ -82,19 +90,16 @@ const styles = StyleSheet.create({
     marginBottom: tokens.space[4],
   },
   label: {
-    color: tokens.color.textSecondary,
     marginBottom: tokens.space[2],
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: tokens.color.surface,
     borderWidth: 1,
     borderRadius: tokens.radius[2],
   },
   input: {
     flex: 1,
-    color: tokens.color.text,
     fontSize: tokens.size.md,
     paddingVertical: tokens.space[3],
     paddingHorizontal: tokens.space[4],

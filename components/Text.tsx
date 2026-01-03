@@ -1,4 +1,5 @@
 import { tokens } from '@/theme/tokens';
+import { useTheme } from '@tamagui/core';
 import React from 'react';
 import { Text as RNText, TextProps as RNTextProps, StyleSheet } from 'react-native';
 
@@ -17,14 +18,35 @@ export function Text({
   children,
   ...props
 }: TextProps) {
+  const theme = useTheme();
   const variantStyle = variantStyles[variant];
-  const colorStyle = colorStyles[color];
+  
+  // Dynamic color resolution from Tamagui theme
+  const colorStyle = {
+    color: getColorValue(color, theme),
+  };
   
   return (
     <RNText style={[variantStyle, colorStyle, style]} {...props}>
       {children}
     </RNText>
   );
+}
+
+function getColorValue(color: TextProps['color'], theme: any) {
+  switch (color) {
+    case 'secondary':
+      return theme.textSecondary?.get() || theme.colorSecondary?.get();
+    case 'muted':
+      return theme.textMuted?.get() || theme.colorMuted?.get();
+    case 'error':
+      return theme.error?.get();
+    case 'primary':
+      return theme.primary?.get() || theme.blue?.get();
+    case 'default':
+    default:
+      return theme.color?.get() || theme.text?.get();
+  }
 }
 
 // Heading components for convenience
@@ -99,24 +121,6 @@ const variantStyles = StyleSheet.create({
     fontWeight: '500',
     lineHeight: tokens.size.sm * 1.4,
     letterSpacing: 0.2,
-  },
-});
-
-const colorStyles = StyleSheet.create({
-  default: {
-    color: tokens.color.text,
-  },
-  secondary: {
-    color: tokens.color.textSecondary,
-  },
-  muted: {
-    color: tokens.color.textMuted,
-  },
-  error: {
-    color: tokens.color.error,
-  },
-  primary: {
-    color: tokens.color.primary,
   },
 });
 

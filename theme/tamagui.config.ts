@@ -1,5 +1,5 @@
 import { createTamagui, createTokens } from '@tamagui/core';
-import { tokens as customTokens, fontSizes, lineHeights } from './tokens';
+import { tokens as customTokens, fontSizes, lineHeights, themeColors, ThemeName } from './tokens';
 
 // Create Tamagui tokens from our custom tokens
 const tokens = createTokens({
@@ -10,44 +10,78 @@ const tokens = createTokens({
   zIndex: customTokens.zIndex,
 });
 
-// Dark theme configuration
-const darkTheme = {
-  background: tokens.color.background,
-  backgroundHover: tokens.color.backgroundSubtle,
-  backgroundPress: tokens.color.backgroundMuted,
-  backgroundFocus: tokens.color.backgroundSubtle,
-  backgroundStrong: tokens.color.backgroundElevated,
-  backgroundTransparent: tokens.color.transparent,
-  
-  color: tokens.color.text,
-  colorHover: tokens.color.text,
-  colorPress: tokens.color.textSecondary,
-  colorFocus: tokens.color.text,
-  colorTransparent: tokens.color.transparent,
-  
-  borderColor: tokens.color.border,
-  borderColorHover: tokens.color.borderFocus,
-  borderColorPress: tokens.color.borderFocus,
-  borderColorFocus: tokens.color.primary,
-  
-  placeholderColor: tokens.color.textMuted,
-  
-  // Semantic colors
-  blue: tokens.color.primary,
-  green: tokens.color.success,
-  red: tokens.color.error,
-  yellow: tokens.color.warning,
-  
-  // Surface colors for cards/containers
-  surface: tokens.color.surface,
-  surfaceHover: tokens.color.surfaceHover,
-  surfaceActive: tokens.color.surfaceActive,
-  
-  // Primary button colors
-  primary: tokens.color.primary,
-  primaryHover: tokens.color.primaryHover,
-  primaryActive: tokens.color.primaryActive,
-};
+/**
+ * Create a theme object from a color palette
+ */
+function createThemeFromPalette(palette: typeof themeColors.dark) {
+  return {
+    background: palette.background,
+    backgroundHover: palette.backgroundSubtle,
+    backgroundPress: palette.backgroundMuted,
+    backgroundFocus: palette.backgroundSubtle,
+    backgroundStrong: palette.backgroundElevated,
+    backgroundTransparent: palette.transparent,
+    
+    color: palette.text,
+    colorHover: palette.text,
+    colorPress: palette.textSecondary,
+    colorFocus: palette.text,
+    colorTransparent: palette.transparent,
+    
+    borderColor: palette.border,
+    borderColorHover: palette.borderFocus,
+    borderColorPress: palette.borderFocus,
+    borderColorFocus: palette.primary,
+    
+    placeholderColor: palette.textMuted,
+    
+    // Semantic colors
+    blue: palette.primary,
+    green: palette.success,
+    red: palette.error,
+    yellow: palette.warning,
+    
+    // Surface colors for cards/containers
+    surface: palette.surface,
+    surfaceHover: palette.surfaceHover,
+    surfaceActive: palette.surfaceActive,
+    
+    // Primary button colors
+    primary: palette.primary,
+    primaryHover: palette.primaryHover,
+    primaryActive: palette.primaryActive,
+    
+    // Secondary accent
+    secondary: palette.secondary,
+    secondaryHover: palette.secondaryHover,
+    secondaryActive: palette.secondaryActive,
+    
+    // Text hierarchy
+    textPrimary: palette.text,
+    textSecondary: palette.textSecondary,
+    textMuted: palette.textMuted,
+    textDisabled: palette.textDisabled,
+    
+    // Semantic
+    success: palette.success,
+    successMuted: palette.successMuted,
+    warning: palette.warning,
+    warningMuted: palette.warningMuted,
+    error: palette.error,
+    errorMuted: palette.errorMuted,
+    info: palette.info,
+    infoMuted: palette.infoMuted,
+    
+    // Overlay
+    overlay: palette.overlay,
+  };
+}
+
+// Generate themes from palettes
+const themes = Object.entries(themeColors).reduce((acc, [name, palette]) => {
+  acc[name as ThemeName] = createThemeFromPalette(palette);
+  return acc;
+}, {} as Record<ThemeName, ReturnType<typeof createThemeFromPalette>>);
 
 // Font configuration
 const fonts = {
@@ -86,12 +120,7 @@ const fonts = {
 // Create the Tamagui configuration
 export const tamaguiConfig = createTamagui({
   tokens,
-  themes: {
-    dark: darkTheme,
-    // We only use dark theme as per requirements
-    // Light theme is the same for consistency
-    light: darkTheme,
-  },
+  themes,
   fonts,
   // Shorthands for common properties
   shorthands: {

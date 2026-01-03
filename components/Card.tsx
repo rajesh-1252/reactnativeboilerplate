@@ -1,5 +1,6 @@
 import { tokens } from '@/theme/tokens';
 import { SPRING_CONFIGS } from '@/ui/animations';
+import { useTheme } from '@tamagui/core';
 import React from 'react';
 import { Pressable, StyleSheet, View, ViewProps } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
@@ -26,6 +27,7 @@ export function Card({
   style,
   ...props
 }: CardProps) {
+  const theme = useTheme();
   const scale = useSharedValue(1);
   
   const animatedStyle = useAnimatedStyle(() => ({
@@ -44,7 +46,7 @@ export function Card({
     }
   };
   
-  const variantStyles = getVariantStyles(variant);
+  const variantStyles = getVariantStyles(variant, theme);
   const paddingStyle = getPaddingStyles(padding);
   
   if (onPress || pressable) {
@@ -68,11 +70,11 @@ export function Card({
   );
 }
 
-function getVariantStyles(variant: CardProps['variant']) {
+function getVariantStyles(variant: CardProps['variant'], theme: any) {
   switch (variant) {
     case 'elevated':
       return {
-        backgroundColor: tokens.color.surfaceHover,
+        backgroundColor: theme.surfaceHover?.get() || theme.backgroundHover?.get(),
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.15,
@@ -83,12 +85,12 @@ function getVariantStyles(variant: CardProps['variant']) {
       return {
         backgroundColor: 'transparent',
         borderWidth: 1,
-        borderColor: tokens.color.border,
+        borderColor: theme.border?.get(),
       };
     case 'default':
     default:
       return {
-        backgroundColor: tokens.color.surface,
+        backgroundColor: theme.surface?.get() || theme.background?.get() || theme.colorTransparent?.get(),
       };
   }
 }
