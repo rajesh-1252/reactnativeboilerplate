@@ -5,6 +5,7 @@ import { H3, Text } from '@/components/Text';
 import { Item, itemsRepository } from '@/db';
 import { useSyncStatus } from '@/store/sync';
 import { useUIStore } from '@/store/ui';
+import { getAppSyncEngine } from '@/sync/app-sync-engine';
 import { tokens } from '@/theme/tokens';
 import { useTheme as useTamaguiTheme } from '@tamagui/core';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -78,10 +79,23 @@ export default function HomeScreen() {
       console.error('Failed to load items:', error);
       addToast({ message: 'Failed to load items', type: 'error' });
     }
-  }, []);
+  }, [addToast]);
   
   useEffect(() => {
     loadItems();
+  }, [loadItems]);
+
+  // Subscribe to sync completion to update local UI state
+  useEffect(() => {
+    const engine = getAppSyncEngine();
+    const unsubscribe = engine.addEventListener((event) => {
+      if (event.type === 'sync-completed') {
+        console.log('[HomeScreen] Sync completed, refreshing list...');
+        loadItems();
+      }
+    });
+
+    return unsubscribe;
   }, [loadItems]);
   
   // Pull to refresh
@@ -172,7 +186,7 @@ export default function HomeScreen() {
         </Text>
       </View>
     </View>
-  ), [connectionState, pendingChangesCount, items.length]);
+  ), [connectionState, pendingChangesCount, items.length, handleAddItem]);
   
   const ListEmpty = useCallback(() => (
     <View style={styles.empty}>

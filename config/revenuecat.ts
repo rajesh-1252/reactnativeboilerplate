@@ -1,176 +1,148 @@
-/**
- * RevenueCat Integration Scaffold
- * 
- * This is a SCAFFOLD for RevenueCat integration.
- * It's only enabled when EXPO_PUBLIC_REVENUECAT_API_KEY is set.
- * 
- * To use RevenueCat:
- * 1. Create a RevenueCat account at https://www.revenuecat.com
- * 2. Set up your products in the RevenueCat dashboard
- * 3. Set EXPO_PUBLIC_REVENUECAT_API_KEY in your .env file
- * 4. Implement the actual purchase logic below
- */
-
+import { Platform } from 'react-native';
+import Purchases, { LOG_LEVEL, PurchasesOffering } from 'react-native-purchases';
+import { create } from 'zustand';
 import { isFeatureEnabled } from './features';
 
-// RevenueCat types (simplified for scaffold)
-export interface Package {
-  identifier: string;
-  product: {
-    title: string;
-    description: string;
-    priceString: string;
-    price: number;
-  };
-  packageType: 'MONTHLY' | 'ANNUAL' | 'LIFETIME' | 'CUSTOM';
-}
+/**
+ * RevenueCat Integration - Production Ready
+ */
 
-export interface PurchaserInfo {
-  activeSubscriptions: string[];
-  entitlements: {
-    active: Record<string, {
-      identifier: string;
-      expirationDate: string | null;
-      productIdentifier: string;
-    }>;
-  };
-}
-
-export interface RevenueCatService {
-  isConfigured: boolean;
-  configure(): Promise<void>;
-  getOfferings(): Promise<Package[]>;
-  purchase(packageId: string): Promise<PurchaserInfo>;
-  restorePurchases(): Promise<PurchaserInfo>;
-  getPurchaserInfo(): Promise<PurchaserInfo>;
-  checkEntitlement(entitlementId: string): Promise<boolean>;
+interface RevenueCatState {
+  isPro: boolean;
+  offerings: PurchasesOffering | null;
+  isLoading: boolean;
+  error: string | null;
+  setPro: (isPro: boolean) => void;
+  setOfferings: (offerings: PurchasesOffering | null) => void;
+  setLoading: (isLoading: boolean) => void;
+  setError: (error: string | null) => void;
 }
 
 /**
- * RevenueCat service implementation scaffold
+ * Zustand store for subscription state
  */
-class RevenueCatServiceImpl implements RevenueCatService {
+export const useSubscriptionStore = create<RevenueCatState>((set) => ({
+  isPro: false,
+  offerings: null,
+  isLoading: false,
+  error: null,
+  setPro: (isPro) => set({ isPro }),
+  setOfferings: (offerings) => set({ offerings }),
+  setLoading: (isLoading) => set({ isLoading }),
+  setError: (error) => set({ error }),
+}));
+
+class RevenueCatService {
   isConfigured = false;
   
   async configure(): Promise<void> {
-    if (!isFeatureEnabled('enableRevenueCat')) {
-      console.log('[RevenueCat] Feature disabled - skipping configuration');
-      return;
-    }
+    if (!isFeatureEnabled('enableRevenueCat')) return;
+    if (this.isConfigured) return;
     
-    const apiKey = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY;
+    const apiKey = Platform.select({
+      ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY,
+      android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY,
+    }) || process.env.EXPO_PUBLIC_REVENUECAT_API_KEY;
     
     if (!apiKey) {
-      console.warn('[RevenueCat] API key not configured');
+      console.warn('[RevenueCat] API key not found. Check your .env file.');
       return;
     }
     
-    // TODO: Implement actual RevenueCat SDK configuration
-    // import Purchases from 'react-native-purchases';
-    // await Purchases.configure({ apiKey });
-    
-    console.log('[RevenueCat] Configured (scaffold mode)');
-    this.isConfigured = true;
-  }
-  
-  async getOfferings(): Promise<Package[]> {
-    if (!this.isConfigured) {
-      console.warn('[RevenueCat] Not configured');
-      return [];
+    try {
+      if (__DEV__) {
+        Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+      }
+      
+      Purchases.configure({ apiKey });
+      this.isConfigured = true;
+      
+      // Listen for changes in customer info (e.g. renewals, expirations)
+      Purchases.addCustomerInfoUpdateListener((customerInfo) => {
+        this.updateProStatus(customerInfo);
+      });
+
+      // Initial check
+      const customerInfo = await Purchases.getCustomerInfo();
+      this.updateProStatus(customerInfo);
+      
+      console.log('[RevenueCat] Configured successfully');
+    } catch (e) {
+      console.error('[RevenueCat] Configuration failed:', e);
     }
-    
-    // TODO: Implement actual offerings fetch
-    // const offerings = await Purchases.getOfferings();
-    // return offerings.current?.availablePackages ?? [];
-    
-    // Return mock data for scaffold
-    return [
-      {
-        identifier: 'monthly_pro',
-        product: {
-          title: 'Pro Monthly',
-          description: 'Full access for one month',
-          priceString: '$9.99/month',
-          price: 9.99,
-        },
-        packageType: 'MONTHLY',
-      },
-      {
-        identifier: 'annual_pro',
-        product: {
-          title: 'Pro Annual',
-          description: 'Full access for one year (save 40%)',
-          priceString: '$59.99/year',
-          price: 59.99,
-        },
-        packageType: 'ANNUAL',
-      },
-    ];
+  }
+
+  private updateProStatus(customerInfo: any) {
+    // 'pro' MUST match the Entitlement ID in your RevenueCat Dashboard
+    const isPro = customerInfo.entitlements.active['pro'] !== undefined;
+    useSubscriptionStore.getState().setPro(isPro);
   }
   
-  async purchase(packageId: string): Promise<PurchaserInfo> {
-    if (!this.isConfigured) {
-      throw new Error('RevenueCat not configured');
+  async getOfferings() {
+    if (!this.isConfigured) await this.configure();
+    if (!this.isConfigured) return null;
+    
+    try {
+      const offerings = await Purchases.getOfferings();
+      if (offerings.current !== null) {
+        useSubscriptionStore.getState().setOfferings(offerings.current);
+        return offerings.current;
+      }
+    } catch (e) {
+      console.error('[RevenueCat] Failed to fetch offerings:', e);
     }
-    
-    // TODO: Implement actual purchase
-    // const { purchaserInfo } = await Purchases.purchasePackage(pkg);
-    // return purchaserInfo;
-    
-    console.log('[RevenueCat] Purchase scaffold:', packageId);
-    return this.emptyPurchaserInfo();
+    return null;
   }
   
-  async restorePurchases(): Promise<PurchaserInfo> {
-    if (!this.isConfigured) {
-      throw new Error('RevenueCat not configured');
+  async purchase(pkg: any): Promise<boolean> {
+    if (!this.isConfigured) return false;
+    
+    const store = useSubscriptionStore.getState();
+    store.setLoading(true);
+    store.setError(null);
+    
+    try {
+      const { customerInfo } = await Purchases.purchasePackage(pkg);
+      const isPro = customerInfo.entitlements.active['pro'] !== undefined;
+      store.setPro(isPro);
+      return isPro;
+    } catch (e: any) {
+      if (e.userCancelled) {
+        console.log('[RevenueCat] User cancelled purchase');
+      } else {
+        console.error('[RevenueCat] Purchase failed:', e);
+        store.setError(e.message || 'Purchase failed');
+      }
+      return false;
+    } finally {
+      store.setLoading(false);
     }
-    
-    // TODO: Implement actual restore
-    // const purchaserInfo = await Purchases.restorePurchases();
-    // return purchaserInfo;
-    
-    console.log('[RevenueCat] Restore purchases scaffold');
-    return this.emptyPurchaserInfo();
   }
   
-  async getPurchaserInfo(): Promise<PurchaserInfo> {
-    if (!this.isConfigured) {
-      return this.emptyPurchaserInfo();
+  async restore(): Promise<boolean> {
+    if (!this.isConfigured) return false;
+    
+    const store = useSubscriptionStore.getState();
+    store.setLoading(true);
+    try {
+      const customerInfo = await Purchases.restorePurchases();
+      const isPro = customerInfo.entitlements.active['pro'] !== undefined;
+      store.setPro(isPro);
+      return isPro;
+    } catch (e: any) {
+      console.error('[RevenueCat] Restore failed:', e);
+      store.setError(e.message || 'Restore failed');
+      return false;
+    } finally {
+      store.setLoading(false);
     }
-    
-    // TODO: Implement actual purchaser info fetch
-    // const purchaserInfo = await Purchases.getPurchaserInfo();
-    // return purchaserInfo;
-    
-    return this.emptyPurchaserInfo();
-  }
-  
-  async checkEntitlement(entitlementId: string): Promise<boolean> {
-    const info = await this.getPurchaserInfo();
-    return entitlementId in info.entitlements.active;
-  }
-  
-  private emptyPurchaserInfo(): PurchaserInfo {
-    return {
-      activeSubscriptions: [],
-      entitlements: { active: {} },
-    };
   }
 }
 
-// Singleton instance
-export const revenueCat = new RevenueCatServiceImpl();
+export const revenueCat = new RevenueCatService();
 
-/**
- * Hook for RevenueCat entitlement check
- * Usage: const isPro = useEntitlement('pro');
- */
-export function useEntitlement(entitlementId: string): boolean {
-  // This is a simplified hook - in production you'd use
-  // useSyncExternalStore or a React Query hook
-  // to reactively update when purchases change
-  return false; // Default to no entitlement
+export function useIsPro() {
+  return useSubscriptionStore((s) => s.isPro);
 }
 
 export default revenueCat;

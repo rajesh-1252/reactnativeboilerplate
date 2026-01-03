@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@tamagui/core';
-import { Tabs } from 'expo-router';
+import { Link, Tabs } from 'expo-router';
 import React from 'react';
+import { Pressable } from 'react-native';
 
 /**
  * Tabs layout for main app navigation
@@ -22,7 +23,7 @@ export default function TabsLayout() {
         },
         tabBarStyle: {
           backgroundColor: theme.background?.get(),
-          borderTopColor: theme.border?.get(),
+          borderTopColor: theme.borderColor?.get(),
           borderTopWidth: 1,
         },
         tabBarActiveTintColor: theme.primary?.get() || theme.blue?.get(),
@@ -39,6 +40,20 @@ export default function TabsLayout() {
           title: 'Home',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" size={size} color={color} />
+          ),
+          headerRight: () => (
+            <Link href="/modal" asChild>
+              <Pressable>
+                {({ pressed }) => (
+                  <Ionicons
+                    name="information-circle-outline"
+                    size={24}
+                    color={theme.color?.get()}
+                    style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
+                  />
+                )}
+              </Pressable>
+            </Link>
           ),
         }}
       />

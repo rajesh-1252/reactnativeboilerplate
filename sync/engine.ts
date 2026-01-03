@@ -190,6 +190,15 @@ export class SyncEngine {
       
       if (localChanges.length > 0) {
         pushResult = await this.backend.push(localChanges);
+        
+        // Mark successfully pushed changes as synced
+        if (pushResult.success) {
+          const syncedIds = localChanges
+            .filter(c => !pushResult.errors.some(e => e.id === c.id))
+            .map(c => ({ id: c.id, entity: c.entity }));
+          await this.markChangesSynced(syncedIds);
+        }
+        
         this.emit({ type: 'push-progress', current: localChanges.length, total: localChanges.length });
       }
       
@@ -208,7 +217,7 @@ export class SyncEngine {
       await this.backend.setLastSyncTime(now);
       
       const result: SyncResult = {
-        success: true,
+        success: pushResult.success,
         pushedCount: pushResult.pushedCount,
         pulledCount: pullCount,
         conflictCount: pushResult.conflictCount,
@@ -235,6 +244,14 @@ export class SyncEngine {
     // For now, returning empty array as scaffold
     console.log('[SyncEngine] getPendingChanges - implement in consuming app');
     return [];
+  }
+
+  /**
+   * Mark local changes as synced in the database
+   * Override this in subclass
+   */
+  protected async markChangesSynced(changes: { id: string; entity: string }[]): Promise<void> {
+    console.log('[SyncEngine] markChangesSynced - implement in consuming app', changes.length);
   }
 
   /**

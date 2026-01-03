@@ -19,6 +19,9 @@ A production-ready Expo (React Native) starter template for building offline-fir
 # Install dependencies
 npm install
 
+# Rename the app (Optional)
+npm run rename-project
+
 # Start development server
 npm run start
 
@@ -177,6 +180,47 @@ Built-in strategies:
 - `remote-wins` - Remote changes always win
 - `manual` - Queue for user resolution
 
+### Supabase Database Setup
+
+To enable cloud sync, you need to create the corresponding tables in your Supabase project. Use the following SQL in the Supabase SQL Editor:
+
+```sql
+-- 1. Create the items table with offline-first columns
+CREATE TABLE items (
+  id text PRIMARY KEY,                   -- We use text because the app generates UUIDs
+  title text NOT NULL,
+  content text DEFAULT '',
+  priority int8 DEFAULT 0,
+  "createdAt" timestamptz DEFAULT now(),
+  "updatedAt" timestamptz DEFAULT now(),
+  "deletedAt" timestamptz,
+  "syncStatus" text DEFAULT 'synced'
+);
+
+-- 2. Enable Row Level Security (RLS)
+ALTER TABLE items ENABLE ROW LEVEL SECURITY;
+
+-- 3. Create a policy to allow public access (FOR DEVELOPMENT ONLY)
+CREATE POLICY "Allow public access for dev" 
+ON items FOR ALL 
+USING (true) 
+WITH CHECK (true);
+
+-- 4. Set up an automatic trigger to update "updatedAt"
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW."updatedAt" = now();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_items_updated_at
+    BEFORE UPDATE ON items
+    FOR EACH ROW
+    EXECUTE PROCEDURE update_updated_at_column();
+```
+
 ## Feature Flags
 
 Toggle features without code changes:
@@ -268,6 +312,14 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=
 # RevenueCat (optional)
 EXPO_PUBLIC_REVENUECAT_API_KEY=
 ```
+
+## Documentation
+
+For detailed information on specific systems, please refer to the following guides:
+
+- [🎨 Theming Guide](./THEMING_GUIDE.md) - How to customize colors, add new themes, and use the design system.
+- [🔄 Sync & Offline Guide](./SYNC_GUIDE.md) - Understanding the SQLite + Supabase sync engine and conflict resolution.
+- [💰 RevenueCat Guide](./REVENUECAT_GUIDE.md) - How to handle in-app purchases and pro entitlements.
 
 ## Customization
 

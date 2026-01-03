@@ -1,5 +1,6 @@
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { Paywall } from '@/components/Paywall';
 import { H3, Text } from '@/components/Text';
 import { useFeatureFlag } from '@/config/features';
 import { useAuthActions, useAuthStore } from '@/store/auth';
@@ -78,6 +79,8 @@ export default function SettingsScreen() {
           </Button>
         </View>
       </Card>
+
+      {isRevenueCatEnabled && <Paywall />}
 
       {/* User Section */}
       <Card variant="default" style={styles.section}>
