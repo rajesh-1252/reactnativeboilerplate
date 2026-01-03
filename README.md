@@ -1,50 +1,282 @@
-# Welcome to your Expo app 👋
+# Expo Offline-First SaaS Boilerplate
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A production-ready Expo (React Native) starter template for building offline-first mobile apps with optional cloud sync.
 
-## Get started
+## Features
 
-1. Install dependencies
+- ✅ **Expo + TypeScript** - Modern React Native development
+- ✅ **Expo Router** - File-based routing with auth and tabs groups
+- ✅ **SQLite (expo-sqlite)** - Offline-first local database
+- ✅ **Tamagui** - Design tokens and dark theme
+- ✅ **Zustand** - Lightweight state management
+- ✅ **React Native Reanimated** - Smooth animations
+- ✅ **Optional Supabase Sync** - Pluggable cloud backend
+- ✅ **RevenueCat Scaffold** - In-app purchases (feature-flagged)
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Quick Start
 
 ```bash
-npm run reset-project
+# Install dependencies
+npm install
+
+# Start development server
+npm run start
+
+# Run on iOS/Android
+npm run ios
+npm run android
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Architecture
 
-## Learn more
+### Offline-First Principle
 
-To learn more about developing your project with Expo, look at the following resources:
+SQLite is the **source of truth**. The app works fully without internet:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```
+┌──────────────┐     ┌─────────────┐     ┌────────────────┐
+│    UI        │────▶│   SQLite    │────▶│  Sync Engine   │
+│  (React)     │◀────│   (Local)   │◀────│  (Optional)    │
+└──────────────┘     └─────────────┘     └────────────────┘
+                            │
+                            ▼
+                    Source of Truth
+```
 
-## Join the community
+1. All data changes write to SQLite first
+2. Sync engine (if enabled) pushes changes to remote
+3. Remote changes pull to SQLite on sync
 
-Join our community of developers creating universal apps.
+### Folder Structure
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```
+├── app/                    # Expo Router screens
+│   ├── (auth)/            # Auth group (login, register)
+│   ├── (tabs)/            # Main tabs (home, settings)
+│   ├── _layout.tsx        # Root layout with providers
+│   └── modal.tsx          # Modal screen
+│
+├── components/            # Reusable UI components
+│   ├── Button.tsx         # Styled button
+│   ├── Card.tsx           # Container card
+│   ├── Input.tsx          # Form input
+│   └── Text.tsx           # Typography
+│
+├── config/                # Configuration
+│   ├── features.ts        # Feature flags
+│   └── revenuecat.ts      # RevenueCat scaffold
+│
+├── db/                    # Database layer
+│   ├── client.ts          # SQLite connection
+│   ├── schema.ts          # Table schemas
+│   ├── migrations.ts      # Migration runner
+│   └── repository.ts      # CRUD operations
+│
+├── store/                 # Zustand stores
+│   ├── auth.ts            # Auth state
+│   ├── sync.ts            # Sync status
+│   └── ui.ts              # UI state (modals, toasts)
+│
+├── sync/                  # Sync engine
+│   ├── engine.ts          # Core sync logic
+│   ├── conflict.ts        # Conflict resolution
+│   ├── supabase.ts        # Supabase adapter
+│   └── types.ts           # Sync types
+│
+├── theme/                 # Theming
+│   ├── tokens.ts          # Design tokens
+│   ├── tamagui.config.ts  # Tamagui setup
+│   └── ThemeProvider.tsx  # Theme provider
+│
+└── ui/                    # Animations
+    ├── animations.ts      # Reanimated presets
+    └── transitions.ts     # Screen transitions
+```
+
+## Database
+
+### Schema Pattern
+
+All entities extend `BaseEntity` with sync support:
+
+```typescript
+interface BaseEntity {
+  id: string;           // UUID
+  createdAt: string;    // ISO timestamp
+  updatedAt: string;    // ISO timestamp
+  deletedAt: string;    // Soft delete
+  syncStatus: 'synced' | 'pending' | 'conflict';
+}
+```
+
+### CRUD Operations
+
+```typescript
+import { itemsRepository } from '@/db';
+
+// Create
+await itemsRepository.create({ title: 'New Item', content: '' });
+
+// Read
+const items = await itemsRepository.findAll();
+const item = await itemsRepository.findById('uuid');
+
+// Update
+await itemsRepository.update('uuid', { title: 'Updated' });
+
+// Delete (soft)
+await itemsRepository.delete('uuid');
+```
+
+### Migrations
+
+Add new migrations in `db/migrations.ts`:
+
+```typescript
+const MIGRATIONS = [
+  { version: 1, name: 'initial', up: SCHEMA.migrations + SCHEMA.items },
+  { version: 2, name: 'add_users', up: 'CREATE TABLE users (...)' },
+];
+```
+
+## Sync Engine
+
+### Configuration
+
+Sync is **optional and pluggable**. Enable by setting environment variables:
+
+```bash
+# .env
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+```
+
+### Custom Backend
+
+Implement `SyncBackend` interface for custom sync:
+
+```typescript
+import { SyncBackend, SyncChange, SyncResult } from '@/sync';
+
+class CustomBackend implements SyncBackend {
+  name = 'custom';
+  async push(changes: SyncChange[]): Promise<SyncResult> { ... }
+  async pull(since: string | null): Promise<SyncChange[]> { ... }
+  // ... other methods
+}
+
+// Use it
+getSyncEngine().setBackend(new CustomBackend());
+```
+
+### Conflict Resolution
+
+Built-in strategies:
+- `last-write-wins` - Most recent timestamp wins
+- `local-wins` - Local changes always win
+- `remote-wins` - Remote changes always win
+- `manual` - Queue for user resolution
+
+## Feature Flags
+
+Toggle features without code changes:
+
+```typescript
+import { isFeatureEnabled, setFeatureFlags } from '@/config';
+
+if (isFeatureEnabled('enableRevenueCat')) {
+  // Show subscription UI
+}
+
+// Override at runtime
+setFeatureFlags({ debugMode: true });
+```
+
+## Theme
+
+### Design Tokens
+
+```typescript
+import { tokens } from '@/theme';
+
+const styles = {
+  container: {
+    backgroundColor: tokens.color.background,
+    padding: tokens.space[4],
+    borderRadius: tokens.radius[2],
+  },
+};
+```
+
+### Colors (Dark Theme)
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| background | #0A0A0B | Main background |
+| surface | #18181B | Cards, containers |
+| text | #FAFAFA | Primary text |
+| textSecondary | #A1A1AA | Secondary text |
+| primary | #3B82F6 | Accent, buttons |
+| border | #27272A | Borders |
+
+## Animations
+
+### Reanimated Presets
+
+```typescript
+import { TIMING_CONFIGS, SPRING_CONFIGS, usePressScaleStyle } from '@/ui';
+
+// Use timing configs
+withTiming(1, TIMING_CONFIGS.entrance);
+
+// Use spring configs  
+withSpring(0, SPRING_CONFIGS.bouncy);
+
+// Use animation hooks
+const animatedStyle = usePressScaleStyle(scale);
+```
+
+## State Management
+
+### UI State (Zustand)
+
+```typescript
+import { useToast, useModal, useUIStore } from '@/store';
+
+// Toasts
+const toast = useToast();
+toast.success('Item saved!');
+toast.error('Something went wrong');
+
+// Modals
+const { isOpen, open, close } = useModal('confirm-delete');
+
+// Loading
+const setLoading = useUIStore(s => s.setLoading);
+setLoading(true, 'Saving...');
+```
+
+## Environment Variables
+
+Create `.env` file:
+
+```bash
+# Supabase (optional)
+EXPO_PUBLIC_SUPABASE_URL=
+EXPO_PUBLIC_SUPABASE_ANON_KEY=
+
+# RevenueCat (optional)
+EXPO_PUBLIC_REVENUECAT_API_KEY=
+```
+
+## Customization
+
+1. **Add tables**: Update `db/schema.ts` and `db/migrations.ts`
+2. **Add screens**: Create files in `app/` directory
+3. **Change theme**: Modify `theme/tokens.ts`
+4. **Add components**: Create in `components/`
+5. **Enable features**: Set environment variables
+
+## License
+
+MIT - Use freely for your projects.

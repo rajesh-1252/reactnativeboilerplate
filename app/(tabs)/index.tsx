@@ -1,98 +1,239 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Button } from '@/components/Button';
+import { Card } from '@/components/Card';
+import { Input } from '@/components/Input';
+import { H3, Text } from '@/components/Text';
+import { Item, itemsRepository } from '@/db';
+import { useSyncStatus } from '@/store/sync';
+import { useUIStore } from '@/store/ui';
+import { tokens } from '@/theme/tokens';
+import React, { useCallback, useEffect, useState } from 'react';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
-
+/**
+ * Home screen demonstrating local CRUD operations
+ */
 export default function HomeScreen() {
+  const [items, setItems] = useState<Item[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [newItemTitle, setNewItemTitle] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+  
+  const { connectionState, pendingChangesCount } = useSyncStatus();
+  const addToast = useUIStore((s) => s.addToast);
+  
+  // Load items from database
+  const loadItems = useCallback(async () => {
+    try {
+      const data = await itemsRepository.findAll({ orderBy: 'createdAt DESC' });
+      setItems(data);
+    } catch (error) {
+      console.error('Failed to load items:', error);
+      addToast({ message: 'Failed to load items', type: 'error' });
+    }
+  }, []);
+  
+  useEffect(() => {
+    loadItems();
+  }, [loadItems]);
+  
+  // Pull to refresh
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadItems();
+    setRefreshing(false);
+  }, [loadItems]);
+  
+  // Create new item
+  const handleAddItem = async () => {
+    if (!newItemTitle.trim()) return;
+    
+    setIsAdding(true);
+    try {
+      await itemsRepository.create({
+        title: newItemTitle.trim(),
+        content: '',
+        priority: 0,
+      });
+      setNewItemTitle('');
+      await loadItems();
+      addToast({ message: 'Item created', type: 'success' });
+    } catch (error) {
+      console.error('Failed to create item:', error);
+      addToast({ message: 'Failed to create item', type: 'error' });
+    } finally {
+      setIsAdding(false);
+    }
+  };
+  
+  // Delete item
+  const handleDeleteItem = async (id: string) => {
+    try {
+      await itemsRepository.delete(id);
+      await loadItems();
+      addToast({ message: 'Item deleted', type: 'success' });
+    } catch (error) {
+      console.error('Failed to delete item:', error);
+      addToast({ message: 'Failed to delete item', type: 'error' });
+    }
+  };
+  
+  const renderItem = ({ item, index }: { item: Item; index: number }) => (
+    <Animated.View entering={FadeInUp.delay(index * 50).springify()}>
+      <Card
+        variant="default"
+        style={styles.card}
+        pressable
+        onPress={() => handleDeleteItem(item.id)}
+      >
+        <View style={styles.cardContent}>
+          <View style={styles.cardText}>
+            <Text variant="body" numberOfLines={1}>
+              {item.title}
+            </Text>
+            <Text variant="caption" color="muted">
+              {new Date(item.createdAt).toLocaleDateString()}
+            </Text>
+          </View>
+          <View style={styles.syncBadge}>
+            <Text variant="caption" color={item.syncStatus === 'synced' ? 'muted' : 'primary'}>
+              {item.syncStatus}
+            </Text>
+          </View>
+        </View>
+      </Card>
+    </Animated.View>
+  );
+  
+  const ListHeader = () => (
+    <View style={styles.header}>
+      {/* Status Bar */}
+      <View style={styles.statusBar}>
+        <Text variant="caption" color="muted">
+          {connectionState === 'connected' ? '● Online' : '○ Offline'}
+        </Text>
+        {pendingChangesCount > 0 && (
+          <Text variant="caption" color="primary">
+            {pendingChangesCount} pending
+          </Text>
+        )}
+      </View>
+      
+      {/* Add Item Form */}
+      <View style={styles.addForm}>
+        <View style={styles.inputContainer}>
+          <Input
+            placeholder="Add new item..."
+            value={newItemTitle}
+            onChangeText={setNewItemTitle}
+            onSubmitEditing={handleAddItem}
+            returnKeyType="done"
+          />
+        </View>
+        <Button
+          onPress={handleAddItem}
+          loading={isAdding}
+          disabled={!newItemTitle.trim()}
+          size="md"
+        >
+          Add
+        </Button>
+      </View>
+      
+      {/* Items Header */}
+      <View style={styles.listHeader}>
+        <H3>Items ({items.length})</H3>
+        <Text variant="caption" color="muted">
+          Tap to delete
+        </Text>
+      </View>
+    </View>
+  );
+  
+  const ListEmpty = () => (
+    <View style={styles.empty}>
+      <Text variant="body" color="muted" style={styles.emptyText}>
+        No items yet. Add one above!
+      </Text>
+    </View>
+  );
+  
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
-
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <View style={styles.container}>
+      <FlatList
+        data={items}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={ListEmpty}
+        contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={tokens.color.primary}
+          />
+        }
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+    backgroundColor: tokens.color.background,
+  },
+  list: {
+    padding: tokens.space[4],
+    paddingBottom: tokens.space[8],
+  },
+  header: {
+    marginBottom: tokens.space[4],
+  },
+  statusBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: tokens.space[4],
+  },
+  addForm: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: tokens.space[3],
+    marginBottom: tokens.space[6],
+  },
+  inputContainer: {
+    flex: 1,
+  },
+  listHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: tokens.space[2],
+  },
+  card: {
+    marginBottom: tokens.space[3],
+  },
+  cardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  cardText: {
+    flex: 1,
+    marginRight: tokens.space[3],
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  syncBadge: {
+    paddingHorizontal: tokens.space[2],
+    paddingVertical: tokens.space[1],
+    backgroundColor: tokens.color.backgroundMuted,
+    borderRadius: tokens.radius[1],
+  },
+  empty: {
+    padding: tokens.space[8],
+    alignItems: 'center',
+  },
+  emptyText: {
+    textAlign: 'center',
   },
 });
