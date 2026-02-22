@@ -8,6 +8,10 @@
   ],
   "scripts": {
     "dev": "turbo run dev",
+    "android": "npm run android -w apps/mobile",
+    "ios": "npm run ios -w apps/mobile",
+    "reset-project": "npm run reset-project -w apps/mobile",
+    "rename-project": "npm run rename-project -w apps/mobile",
     "build": "turbo run build",
     "lint": "turbo run lint"
   },

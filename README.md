@@ -26,6 +26,14 @@ Run both the mobile app and backend API simultaneously:
 npm run dev
 ```
 
+Run just the mobile app on a specific platform:
+
+```bash
+npm run android
+# or
+npm run ios
+```
+
 ## ⚙️ Configuration
 
 ### Architecture Toggle (Offline vs Online)
@@ -44,5 +52,7 @@ export const ARCHITECTURE_CONFIG = {
 - `npm run dev`: Start all apps.
 - `npm run build`: Build all packages.
 - `npm run lint`: Lint all packages.
+- `npm run rename-project`: Rename the mobile app and its bundle identifiers.
+- `npm run reset-project`: Reset the mobile app to its initial state.
 
 For mobile-specific commands (like `npx expo run:ios`), navigate to `apps/mobile`.
