@@ -2,7 +2,8 @@ import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Input } from '@/components/Input';
 import { H3, Text } from '@/components/Text';
-import { Item, itemsRepository } from '@/db';
+import { Item } from '@/db';
+import { itemsDataService } from '@/services/items.data.service';
 import { useSyncStatus } from '@/store/sync';
 import { useUIStore } from '@/store/ui';
 import { getAppSyncEngine } from '@/sync/app-sync-engine';
@@ -56,11 +57,11 @@ function AddItemForm({ onAddItem }: { onAddItem: (title: string) => Promise<void
 export default function HomeScreen() {
   const [items, setItems] = useState<Item[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   const tamaguiTheme = useTamaguiTheme();
   const { connectionState, pendingChangesCount } = useSyncStatus();
   const addToast = useUIStore((s) => s.addToast);
-  
+
   const dynamicStyles = useMemo(() => ({
     container: {
       backgroundColor: tamaguiTheme.background?.get(),
@@ -70,17 +71,17 @@ export default function HomeScreen() {
     }
   }), [tamaguiTheme]);
 
-  // Load items from database
+  // Load items from database/API
   const loadItems = useCallback(async () => {
     try {
-      const data = await itemsRepository.findAll({ orderBy: 'createdAt DESC' });
+      const data = await itemsDataService.findAll();
       setItems(data);
     } catch (error) {
       console.error('Failed to load items:', error);
       addToast({ message: 'Failed to load items', type: 'error' });
     }
   }, [addToast]);
-  
+
   useEffect(() => {
     loadItems();
   }, [loadItems]);
@@ -97,18 +98,18 @@ export default function HomeScreen() {
 
     return unsubscribe;
   }, [loadItems]);
-  
+
   // Pull to refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadItems();
     setRefreshing(false);
   }, [loadItems]);
-  
+
   // Create new item callback
   const handleAddItem = async (title: string) => {
     try {
-      await itemsRepository.create({
+      await itemsDataService.create({
         title,
         content: '',
         priority: 0,
@@ -121,11 +122,11 @@ export default function HomeScreen() {
       throw error;
     }
   };
-  
+
   // Delete item
   const handleDeleteItem = async (id: string) => {
     try {
-      await itemsRepository.delete(id);
+      await itemsDataService.delete(id);
       await loadItems();
       addToast({ message: 'Item deleted', type: 'success' });
     } catch (error) {
@@ -133,7 +134,7 @@ export default function HomeScreen() {
       addToast({ message: 'Failed to delete item', type: 'error' });
     }
   };
-  
+
   const renderItem = ({ item, index }: { item: Item; index: number }) => (
     <Animated.View entering={FadeInUp.delay(index * 50).springify()}>
       <Card
@@ -160,7 +161,7 @@ export default function HomeScreen() {
       </Card>
     </Animated.View>
   );
-  
+
   // List header extracted to avoid unnecessary re-creation
   const ListHeader = useMemo(() => (
     <View style={styles.header}>
@@ -175,9 +176,9 @@ export default function HomeScreen() {
           </Text>
         )}
       </View>
-      
+
       <AddItemForm onAddItem={handleAddItem} />
-      
+
       {/* Items Header */}
       <View style={styles.listHeader}>
         <H3>Items ({items.length})</H3>
@@ -187,7 +188,7 @@ export default function HomeScreen() {
       </View>
     </View>
   ), [connectionState, pendingChangesCount, items.length, handleAddItem]);
-  
+
   const ListEmpty = useCallback(() => (
     <View style={styles.empty}>
       <Text variant="body" color="muted" style={styles.emptyText}>
@@ -195,7 +196,7 @@ export default function HomeScreen() {
       </Text>
     </View>
   ), []);
-  
+
   return (
     <View style={[styles.container, dynamicStyles.container]}>
       <FlatList
